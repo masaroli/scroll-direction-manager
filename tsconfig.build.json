@@ -1,9 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES5",
-    "module": "CommonJS",
+    "module": "ESNext",
     "declaration": true,
-    "outDir": "./dist/cjs",
+    "moduleResolution": "node",
+    "outDir": "./dist/esm",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true
