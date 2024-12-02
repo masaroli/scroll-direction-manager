@@ -1,6 +1,6 @@
 {
   "name": "scroll-direction-manager",
-  "version": "1.0.4",
+  "version": "2.0.0",
   "description": "A utility package that simplifies tracking the scroll direction (up, down, or initial) of a web page",
   "main": "dist/cjs/index.js",
   "types": "dist/cjs/index.d.ts",
