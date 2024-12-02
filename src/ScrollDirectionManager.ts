@@ -1,6 +1,3 @@
-import { addEventListener } from "seng-disposable-event-listener";
-import { DisposableManager } from "seng-disposable-manager";
-
 export type ScrollDirection = "initial" | "up" | "down";
 
 type ScrollDirectionManagerOptions = {
@@ -8,26 +5,19 @@ type ScrollDirectionManagerOptions = {
   onDirectionChange?: (direction: ScrollDirection) => void;
 };
 
-/**
- * @example
- * const scrollDirection = new ScrollDirection({
- *   onDirectionChange: (direction) => {
- *     if (direction === "up") // do something if its up
- *     else if (direction === "initial") // do if its initial
- *   },
- *    treshold: 30
- * })
- */
-
 export class ScrollDirectionManager {
   private readonly onDirectionChange: ScrollDirectionManagerOptions["onDirectionChange"] =
     undefined;
   private scrollPosition: number;
   private scrollDirection: ScrollDirection = "initial";
   private readonly initialOffset: number = 120;
-  private readonly disposables = new DisposableManager();
 
-  public constructor({ initialOffset, onDirectionChange }: ScrollDirectionManagerOptions) {
+  private scrollListener: EventListener | null = null;
+
+  public constructor({
+    initialOffset,
+    onDirectionChange,
+  }: ScrollDirectionManagerOptions) {
     this.scrollPosition = 0;
     if (initialOffset) this.initialOffset = initialOffset;
     this.onDirectionChange = onDirectionChange;
@@ -35,7 +25,9 @@ export class ScrollDirectionManager {
   }
 
   private readonly setupSubscriptions = (): void => {
-    this.disposables.add(addEventListener(window, "scroll", this.handleScrollDirection));
+    // Setting up the scroll event listener
+    this.scrollListener = this.handleScrollDirection.bind(this);
+    window.addEventListener("scroll", this.scrollListener);
   };
 
   private readonly handleScrollDirection = (): void => {
@@ -59,6 +51,10 @@ export class ScrollDirectionManager {
   };
 
   public dispose(): void {
-    this.disposables.dispose();
+    // Remove the event listener when disposing
+    if (this.scrollListener) {
+      window.removeEventListener("scroll", this.scrollListener);
+      this.scrollListener = null;
+    }
   }
 }

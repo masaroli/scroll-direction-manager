@@ -34,8 +34,5 @@
     "ts-jest": "^29.1.3",
     "typescript": "^5.4.5"
   },
-  "dependencies": {
-    "seng-disposable-event-listener": "^2.0.1",
-    "seng-disposable-manager": "^2.0.0"
-  }
+  "dependencies": {}
 }
