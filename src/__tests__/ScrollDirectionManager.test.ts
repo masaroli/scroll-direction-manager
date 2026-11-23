@@ -28,6 +28,12 @@ describe("ScrollDirectionManager", () => {
     expect(manager.getDirection()).toBe("initial");
   });
 
+  test("should support an initial offset of 0", () => {
+    const zeroOffsetManager = new ScrollDirectionManager({ initialOffset: 0 });
+    expect(zeroOffsetManager["initialOffset"]).toBe(0);
+    zeroOffsetManager.dispose();
+  });
+
   test("should call onDirectionChange when scroll direction changes", () => {
     scrollEvents.forEach((scrollY, index) => {
       Object.defineProperty(global.window, "scrollY", {
@@ -49,11 +55,17 @@ describe("ScrollDirectionManager", () => {
     });
   });
 
-  test("should remove event listener on dispose", () => {
+  test("should remove the registered event listener once on dispose", () => {
+    const registeredListener = (window.addEventListener as jest.Mock).mock
+      .calls[0][1];
+
     manager.dispose();
+    manager.dispose();
+
+    expect(window.removeEventListener).toHaveBeenCalledTimes(1);
     expect(window.removeEventListener).toHaveBeenCalledWith(
       "scroll",
-      manager["handleScrollDirection"]
+      registeredListener
     );
   });
 });

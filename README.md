@@ -1,12 +1,12 @@
 # ScrollDirectionManager
 
-`scroll-direction-manager` is a lightweight, zero-dependency utility package that simplifies tracking the scroll direction (`"up"`, `"down"`, or `"initial"`) of a web page. It ships with both a framework-agnostic `ScrollDirectionManager` class and a first-class React hook (`useScrollDirection`).
+`scroll-direction-manager` is a lightweight, zero-dependency utility package that simplifies tracking the scroll direction (`"up"`, `"down"`, or `"initial"`) of a web page. It ships with both a framework-agnostic `ScrollDirectionManager` class and a dedicated React hook entry point (`scroll-direction-manager/react`).
 
 It is particularly useful for responsive navigation bars and sticky headers that hide on scroll down, reappear with a scrolled state on scroll up, and reset when near the top of the page.
 
 ## Key Features
 
-- **React Hook (`useScrollDirection`)**: Returns `{ direction, isUp, isDown, isInitial }` and automatically manages listener lifecycle.
+- **React Hook (`useScrollDirection`)**: Exposed via `scroll-direction-manager/react` so vanilla projects stay 100% React-free. Returns `{ direction, isUp, isDown, isInitial }` and automatically manages listener lifecycle.
 - **Scroll Direction Detection**: Accurately determines the current scroll direction (`"up"`, `"down"`, or `"initial"`) based on `window.scrollY` and an optional `initialOffset` threshold.
 - **Callback Support**: Pass an optional `onDirectionChange` callback that fires only when the scroll direction state transitions.
 - **Zero External Runtime Dependencies**: Uses native browser event listeners with SSR safety (`typeof window !== "undefined"`).
@@ -19,10 +19,10 @@ npm install scroll-direction-manager
 
 ## React Usage
 
-Use the `useScrollDirection` hook to declaratively track scroll direction in your React components:
+Import the `useScrollDirection` hook from `scroll-direction-manager/react` to declaratively track scroll direction in your React components:
 
 ```tsx
-import { useScrollDirection } from "scroll-direction-manager";
+import { useScrollDirection } from "scroll-direction-manager/react";
 
 export function Navbar() {
   const { direction, isUp, isDown, isInitial } = useScrollDirection({
@@ -86,6 +86,8 @@ const scrollDirectionInstance = new ScrollDirectionManager({
 
 ### `useScrollDirection(options?: UseScrollDirectionOptions): UseScrollDirectionResult`
 
+Imported from `"scroll-direction-manager/react"`.
+
 #### Options (`UseScrollDirectionOptions` / `ScrollDirectionManagerOptions`)
 
 | Option | Type | Default | Description |
@@ -104,6 +106,8 @@ const scrollDirectionInstance = new ScrollDirectionManager({
 
 ### `ScrollDirectionManager`
 
+Imported from `"scroll-direction-manager"`.
+
 - `new ScrollDirectionManager(options?: ScrollDirectionManagerOptions)`: Starts listening to `window` scroll events.
 - `getDirection(): ScrollDirection`: Returns the current scroll direction (`"initial" | "up" | "down"`).
 - `dispose(): void`: Removes the `window` scroll event listener.
@@ -112,16 +116,17 @@ const scrollDirectionInstance = new ScrollDirectionManager({
 
 When integrating or modifying `scroll-direction-manager`, keep these rules in mind:
 
-1. **Named Exports Only**: Always import via named exports from the root package:
-   - React: `import { useScrollDirection } from "scroll-direction-manager";`
+1. **Entry Points & Named Exports**:
+   - React: `import { useScrollDirection } from "scroll-direction-manager/react";`
    - Vanilla JS/TS: `import { ScrollDirectionManager, type ScrollDirection } from "scroll-direction-manager";`
+   - Keep React imports isolated to the `/react` subpath so non-React consumers do not need `react` installed.
 2. **State Semantics (`"initial"` vs `"up"` vs `"down"`)**:
    - While `window.scrollY <= initialOffset` (default `120`px), the direction is strictly `"initial"`, even if the user scrolls slightly down or up within that top region.
    - `"down"` and `"up"` are only emitted when `window.scrollY > initialOffset`.
    - For sticky headers/navbars: show the header in its default/transparent style when `isInitial` (`direction === "initial"`), hide it when `isDown` (`direction === "down"`), and show it with an elevated/compact backdrop when `isUp` (`direction === "up"`).
 3. **SSR & Next.js Compatibility**:
    - `ScrollDirectionManager` guards all `window` access with `typeof window !== "undefined"`, making it safe to import on the server.
-   - In Next.js App Router, add `"use client";` at the top of any component file that calls `useScrollDirection`.
+   - `scroll-direction-manager/react` includes the `"use client";` directive; in Next.js App Router, add `"use client";` at the top of any component file that calls `useScrollDirection`.
 4. **Cleanup & Re-renders**:
    - In React, `useScrollDirection` automatically calls `manager.dispose()` on unmount and holds `onDirectionChange` in a ref so inline callbacks do not reset scroll tracking across renders.
    - In Vanilla JS or non-React frameworks, always call `instance.dispose()` during component teardown to prevent memory leaks.

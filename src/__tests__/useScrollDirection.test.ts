@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { useScrollDirection } from "../useScrollDirection";
+import { useScrollDirection } from "../react";
 
 describe("useScrollDirection", () => {
   const triggerScroll = (scrollY: number) => {
@@ -75,16 +75,61 @@ describe("useScrollDirection", () => {
     expect(onDirectionChange).toHaveBeenCalledWith("initial");
   });
 
+  test("does not re-subscribe scroll listener when onDirectionChange callback changes", () => {
+    const addEventListenerSpy = jest.spyOn(window, "addEventListener");
+    const firstCallback = jest.fn();
+    const secondCallback = jest.fn();
+
+    const { rerender } = renderHook(
+      ({ cb }) => useScrollDirection({ initialOffset: 50, onDirectionChange: cb }),
+      { initialProps: { cb: firstCallback } }
+    );
+
+    rerender({ cb: secondCallback });
+
+    expect(addEventListenerSpy).toHaveBeenCalledTimes(1);
+
+    triggerScroll(150);
+    expect(firstCallback).not.toHaveBeenCalled();
+    expect(secondCallback).toHaveBeenCalledWith("down");
+
+    addEventListenerSpy.mockRestore();
+  });
+
+  test("resets direction to initial when initialOffset changes", () => {
+    const { result, rerender } = renderHook(
+      ({ offset }) => useScrollDirection({ initialOffset: offset }),
+      { initialProps: { offset: 50 } }
+    );
+
+    triggerScroll(150);
+    expect(result.current.direction).toBe("down");
+
+    rerender({ offset: 200 });
+    expect(result.current).toEqual({
+      direction: "initial",
+      isInitial: true,
+      isUp: false,
+      isDown: false,
+    });
+  });
+
   test("cleans up window scroll event listener on unmount", () => {
+    const addEventListenerSpy = jest.spyOn(window, "addEventListener");
     const removeEventListenerSpy = jest.spyOn(window, "removeEventListener");
     const { unmount } = renderHook(() => useScrollDirection());
+
+    const registeredListener = addEventListenerSpy.mock.calls.find(
+      ([eventName]) => eventName === "scroll"
+    )?.[1];
 
     unmount();
 
     expect(removeEventListenerSpy).toHaveBeenCalledWith(
       "scroll",
-      expect.any(Function)
+      registeredListener
     );
+    addEventListenerSpy.mockRestore();
     removeEventListenerSpy.mockRestore();
   });
 });

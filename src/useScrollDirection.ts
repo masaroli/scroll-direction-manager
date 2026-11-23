@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, useState } from "react";
 import {
   ScrollDirection,
@@ -41,6 +43,8 @@ export function useScrollDirection(
         onDirectionChangeRef.current?.(newDirection);
       },
     });
+
+    setDirection(manager.getDirection());
 
     return () => {
       manager.dispose();
