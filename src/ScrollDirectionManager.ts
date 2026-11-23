@@ -1,6 +1,6 @@
 export type ScrollDirection = "initial" | "up" | "down";
 
-type ScrollDirectionManagerOptions = {
+export type ScrollDirectionManagerOptions = {
   initialOffset?: number;
   onDirectionChange?: (direction: ScrollDirection) => void;
 };
@@ -17,20 +17,24 @@ export class ScrollDirectionManager {
   public constructor({
     initialOffset,
     onDirectionChange,
-  }: ScrollDirectionManagerOptions) {
+  }: ScrollDirectionManagerOptions = {}) {
     this.scrollPosition = 0;
-    if (initialOffset) this.initialOffset = initialOffset;
+    if (initialOffset !== undefined) this.initialOffset = initialOffset;
     this.onDirectionChange = onDirectionChange;
     this.setupSubscriptions();
   }
 
   private readonly setupSubscriptions = (): void => {
+    if (typeof window === "undefined") return;
+
     // Setting up the scroll event listener
     this.scrollListener = this.handleScrollDirection.bind(this);
     window.addEventListener("scroll", this.scrollListener);
   };
 
   private readonly handleScrollDirection = (): void => {
+    if (typeof window === "undefined") return;
+
     const position = window.scrollY;
     let direction: ScrollDirection = "initial";
 
@@ -50,9 +54,13 @@ export class ScrollDirectionManager {
     this.scrollDirection = direction;
   };
 
+  public getDirection(): ScrollDirection {
+    return this.scrollDirection;
+  }
+
   public dispose(): void {
     // Remove the event listener when disposing
-    if (this.scrollListener) {
+    if (typeof window !== "undefined" && this.scrollListener) {
       window.removeEventListener("scroll", this.scrollListener);
       this.scrollListener = null;
     }
