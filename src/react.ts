@@ -8,4 +8,6 @@ export type {
 export type {
   ScrollDirection,
   ScrollDirectionManagerOptions,
+  ScrollDirectionPayloadMap,
+  ResolvedScrollDirectionPayload,
 } from "./ScrollDirectionManager";
