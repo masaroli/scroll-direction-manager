@@ -1,13 +1,34 @@
 export type ScrollDirection = "initial" | "up" | "down";
 
-export type ScrollDirectionManagerOptions = {
+export type ScrollDirectionPayloadMap = Readonly<
+  Partial<Record<ScrollDirection, unknown>>
+>;
+
+export type ResolvedScrollDirectionPayload<TMap> = [TMap] extends [undefined]
+  ? undefined
+  : TMap extends Readonly<Record<ScrollDirection, infer TValue>>
+    ? TValue
+    : TMap extends Readonly<Partial<Record<ScrollDirection, infer TValue>>>
+      ? TValue | undefined
+      : undefined;
+
+export type ScrollDirectionManagerOptions<
+  TMap extends ScrollDirectionPayloadMap | undefined = undefined,
+> = {
   initialOffset?: number;
-  onDirectionChange?: (direction: ScrollDirection) => void;
+  payload?: TMap;
+  onDirectionChange?: (
+    direction: ScrollDirection,
+    payload: ResolvedScrollDirectionPayload<TMap>
+  ) => void;
 };
 
-export class ScrollDirectionManager {
-  private readonly onDirectionChange: ScrollDirectionManagerOptions["onDirectionChange"] =
+export class ScrollDirectionManager<
+  TMap extends ScrollDirectionPayloadMap | undefined = undefined,
+> {
+  private readonly onDirectionChange: ScrollDirectionManagerOptions<TMap>["onDirectionChange"] =
     undefined;
+  private readonly payload: TMap | undefined = undefined;
   private scrollPosition: number;
   private scrollDirection: ScrollDirection = "initial";
   private readonly initialOffset: number = 120;
@@ -16,10 +37,12 @@ export class ScrollDirectionManager {
 
   public constructor({
     initialOffset,
+    payload,
     onDirectionChange,
-  }: ScrollDirectionManagerOptions = {}) {
+  }: ScrollDirectionManagerOptions<TMap> = {}) {
     this.scrollPosition = 0;
     if (initialOffset !== undefined) this.initialOffset = initialOffset;
+    this.payload = payload;
     this.onDirectionChange = onDirectionChange;
     this.setupSubscriptions();
   }
@@ -31,6 +54,12 @@ export class ScrollDirectionManager {
     this.scrollListener = this.handleScrollDirection.bind(this);
     window.addEventListener("scroll", this.scrollListener);
   };
+
+  private getPayloadForDirection(
+    direction: ScrollDirection
+  ): ResolvedScrollDirectionPayload<TMap> {
+    return this.payload?.[direction] as ResolvedScrollDirectionPayload<TMap>;
+  }
 
   private readonly handleScrollDirection = (): void => {
     if (typeof window === "undefined") return;
@@ -47,7 +76,18 @@ export class ScrollDirectionManager {
     }
 
     if (direction !== this.scrollDirection) {
-      this.onDirectionChange?.(direction);
+      if (this.payload !== undefined) {
+        this.onDirectionChange?.(
+          direction,
+          this.getPayloadForDirection(direction)
+        );
+      } else {
+        (
+          this.onDirectionChange as
+            | ((direction: ScrollDirection) => void)
+            | undefined
+        )?.(direction);
+      }
     }
 
     this.scrollPosition = position;
@@ -56,6 +96,10 @@ export class ScrollDirectionManager {
 
   public getDirection(): ScrollDirection {
     return this.scrollDirection;
+  }
+
+  public getPayload(): ResolvedScrollDirectionPayload<TMap> {
+    return this.getPayloadForDirection(this.scrollDirection);
   }
 
   public dispose(): void {

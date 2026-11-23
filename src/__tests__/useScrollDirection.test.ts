@@ -132,4 +132,118 @@ describe("useScrollDirection", () => {
     addEventListenerSpy.mockRestore();
     removeEventListenerSpy.mockRestore();
   });
+
+  test("resolves custom payload for each direction and passes it to onDirectionChange", () => {
+    const onDirectionChange = jest.fn();
+    const { result } = renderHook(() =>
+      useScrollDirection({
+        initialOffset: 50,
+        payload: {
+          initial: "navbar--top",
+          up: "navbar--scrolled",
+          down: "navbar--hidden",
+        } as const,
+        onDirectionChange: (direction, payload) => {
+          const typedPayload:
+            | "navbar--top"
+            | "navbar--scrolled"
+            | "navbar--hidden" = payload;
+          onDirectionChange(direction, typedPayload);
+        },
+      })
+    );
+
+    expect(result.current).toEqual({
+      direction: "initial",
+      payload: "navbar--top",
+      isInitial: true,
+      isUp: false,
+      isDown: false,
+    });
+
+    triggerScroll(150);
+    expect(result.current).toEqual({
+      direction: "down",
+      payload: "navbar--hidden",
+      isInitial: false,
+      isUp: false,
+      isDown: true,
+    });
+    expect(onDirectionChange).toHaveBeenLastCalledWith("down", "navbar--hidden");
+
+    triggerScroll(100);
+    expect(result.current).toEqual({
+      direction: "up",
+      payload: "navbar--scrolled",
+      isInitial: false,
+      isUp: true,
+      isDown: false,
+    });
+    expect(onDirectionChange).toHaveBeenLastCalledWith("up", "navbar--scrolled");
+
+    triggerScroll(20);
+    expect(result.current).toEqual({
+      direction: "initial",
+      payload: "navbar--top",
+      isInitial: true,
+      isUp: false,
+      isDown: false,
+    });
+    expect(onDirectionChange).toHaveBeenLastCalledWith(
+      "initial",
+      "navbar--top"
+    );
+  });
+
+  test("does not re-subscribe when inline payload object changes and uses latest payload", () => {
+    const addEventListenerSpy = jest.spyOn(window, "addEventListener");
+    const onDirectionChange = jest.fn();
+
+    const { result, rerender } = renderHook(
+      ({ downLabel }) =>
+        useScrollDirection({
+          initialOffset: 50,
+          payload: {
+            initial: "show",
+            up: "show",
+            down: downLabel,
+          },
+          onDirectionChange,
+        }),
+      { initialProps: { downLabel: "hide-v1" } }
+    );
+
+    rerender({ downLabel: "hide-v2" });
+
+    expect(addEventListenerSpy).toHaveBeenCalledTimes(1);
+
+    triggerScroll(150);
+    expect(result.current.payload).toBe("hide-v2");
+    expect(onDirectionChange).toHaveBeenCalledWith("down", "hide-v2");
+
+    addEventListenerSpy.mockRestore();
+  });
+
+  test("supports partial payload maps in useScrollDirection", () => {
+    const onDirectionChange = jest.fn();
+    const { result } = renderHook(() =>
+      useScrollDirection({
+        initialOffset: 50,
+        payload: {
+          down: "hide",
+        },
+        onDirectionChange,
+      })
+    );
+
+    expect(result.current.payload).toBeUndefined();
+
+    triggerScroll(150);
+    expect(result.current.payload).toBe("hide");
+    expect(onDirectionChange).toHaveBeenLastCalledWith("down", "hide");
+
+    triggerScroll(100);
+    expect(result.current.payload).toBeUndefined();
+    expect(onDirectionChange).toHaveBeenLastCalledWith("up", undefined);
+  });
 });

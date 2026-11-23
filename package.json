@@ -1,6 +1,6 @@
 {
   "name": "scroll-direction-manager",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "A utility package that simplifies tracking the scroll direction (up, down, or initial) of a web page, with React hook support",
   "main": "dist/cjs/index.js",
   "types": "dist/cjs/index.d.ts",
