@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { createRef } from "react";
 import { useScrollDirection } from "../react";
 
 describe("useScrollDirection", () => {
@@ -81,7 +82,8 @@ describe("useScrollDirection", () => {
     const secondCallback = jest.fn();
 
     const { rerender } = renderHook(
-      ({ cb }) => useScrollDirection({ initialOffset: 50, onDirectionChange: cb }),
+      ({ cb }) =>
+        useScrollDirection({ initialOffset: 50, onDirectionChange: cb }),
       { initialProps: { cb: firstCallback } }
     );
 
@@ -169,7 +171,10 @@ describe("useScrollDirection", () => {
       isUp: false,
       isDown: true,
     });
-    expect(onDirectionChange).toHaveBeenLastCalledWith("down", "navbar--hidden");
+    expect(onDirectionChange).toHaveBeenLastCalledWith(
+      "down",
+      "navbar--hidden"
+    );
 
     triggerScroll(100);
     expect(result.current).toEqual({
@@ -179,7 +184,10 @@ describe("useScrollDirection", () => {
       isUp: true,
       isDown: false,
     });
-    expect(onDirectionChange).toHaveBeenLastCalledWith("up", "navbar--scrolled");
+    expect(onDirectionChange).toHaveBeenLastCalledWith(
+      "up",
+      "navbar--scrolled"
+    );
 
     triggerScroll(20);
     expect(result.current).toEqual({
@@ -245,5 +253,139 @@ describe("useScrollDirection", () => {
     triggerScroll(100);
     expect(result.current.payload).toBeUndefined();
     expect(onDirectionChange).toHaveBeenLastCalledWith("up", undefined);
+  });
+
+  test("resets direction and scrollPosition when resetKey changes (SPA route change)", () => {
+    const onDirectionChange = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ pathname }) =>
+        useScrollDirection({
+          initialOffset: 120,
+          resetKey: pathname,
+          onDirectionChange,
+        }),
+      { initialProps: { pathname: "/home" } }
+    );
+
+    // Scroll far down on /home
+    triggerScroll(1200);
+    expect(result.current.direction).toBe("down");
+    onDirectionChange.mockClear();
+
+    // Rerendering with the same resetKey keeps current direction
+    rerender({ pathname: "/home" });
+    expect(result.current.direction).toBe("down");
+    expect(onDirectionChange).not.toHaveBeenCalled();
+
+    // Router resets window.scrollY to 0 without firing a scroll event, then pathname changes
+    Object.defineProperty(window, "scrollY", {
+      value: 0,
+      writable: true,
+      configurable: true,
+    });
+    rerender({ pathname: "/about" });
+
+    expect(result.current.direction).toBe("initial");
+    expect(result.current.isInitial).toBe(true);
+    expect(onDirectionChange).toHaveBeenCalledWith("initial");
+    onDirectionChange.mockClear();
+
+    // Scrolling down to 150px on /about must report "down" (not "up" vs stale 1200)
+    triggerScroll(150);
+    expect(result.current.direction).toBe("down");
+    expect(onDirectionChange).toHaveBeenCalledWith("down");
+  });
+
+  test("respects threshold option in useScrollDirection", () => {
+    const { result } = renderHook(() =>
+      useScrollDirection({ initialOffset: 50, threshold: 15 })
+    );
+
+    triggerScroll(200);
+    expect(result.current.direction).toBe("down");
+
+    // 5px bounce up (< 15px threshold) stays "down"
+    triggerScroll(195);
+    expect(result.current.direction).toBe("down");
+
+    // Cumulative 20px up (>= 15px) flips to "up"
+    triggerScroll(180);
+    expect(result.current.direction).toBe("up");
+  });
+
+  test("tracks a scrollable HTMLElement passed via React ref", () => {
+    const container = document.createElement("div");
+    let scrollTop = 0;
+    Object.defineProperty(container, "scrollTop", {
+      get: () => scrollTop,
+      set: (v: number) => {
+        scrollTop = v;
+      },
+      configurable: true,
+    });
+
+    const ref = createRef<HTMLDivElement>();
+    (ref as { current: HTMLDivElement | null }).current = container;
+
+    const { result } = renderHook(() =>
+      useScrollDirection({ initialOffset: 40, target: ref })
+    );
+
+    // Window scroll should NOT affect container-bound hook
+    triggerScroll(300);
+    expect(result.current.direction).toBe("initial");
+
+    // Container scroll updates hook state
+    act(() => {
+      scrollTop = 120;
+      container.dispatchEvent(new Event("scroll"));
+    });
+    expect(result.current.direction).toBe("down");
+
+    act(() => {
+      scrollTop = 70;
+      container.dispatchEvent(new Event("scroll"));
+    });
+    expect(result.current.direction).toBe("up");
+  });
+
+  test("coalesces scroll events via requestAnimationFrame when enabled", () => {
+    const callbacks: FrameRequestCallback[] = [];
+    const rafMock = jest.fn((cb: FrameRequestCallback) => {
+      callbacks.push(cb);
+      return callbacks.length;
+    });
+    const cancelRafMock = jest.fn();
+
+    const origRaf = global.requestAnimationFrame;
+    const origCancelRaf = global.cancelAnimationFrame;
+    global.requestAnimationFrame = rafMock;
+    global.cancelAnimationFrame = cancelRafMock;
+
+    try {
+      const { result, unmount } = renderHook(() =>
+        useScrollDirection({ initialOffset: 50, useAnimationFrame: true })
+      );
+
+      triggerScroll(150);
+      triggerScroll(220);
+      expect(rafMock).toHaveBeenCalledTimes(1);
+      expect(result.current.direction).toBe("initial");
+
+      act(() => {
+        callbacks[0](16);
+      });
+      expect(result.current.direction).toBe("down");
+
+      // Queue another rAF and unmount before flush
+      triggerScroll(120);
+      expect(rafMock).toHaveBeenCalledTimes(2);
+
+      unmount();
+      expect(cancelRafMock).toHaveBeenCalledWith(2);
+    } finally {
+      global.requestAnimationFrame = origRaf;
+      global.cancelAnimationFrame = origCancelRaf;
+    }
   });
 });
